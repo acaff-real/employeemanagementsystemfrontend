@@ -43,11 +43,16 @@ async function loadDashboard() {
         let tasksHTML = safeTasks.map(task => {
             const safeComments = task.comments || [];
             
+            // NEW: Format the date into a readable string (e.g., "Oct 24, 2023")
+            const assignedDate = new Date(task.created_at).toLocaleDateString(undefined, {
+                month: 'short', day: 'numeric', year: 'numeric'
+            });
+
             let commentsHTML = safeComments.map(c => {
                 const authorName = c.author ? c.author.username : 'Unknown';
                 return `
                     <div class="text-xs text-gray-700 border-l-4 border-gray-300 pl-3 py-1 mt-2">
-                        <span class="font-bold text-gray-900">@${authorName}:</span> ${c.text}
+                        <span class="font-bold text-gray-900">@${authorName}:</span> ${escapeHTML(c.text)}
                     </div>
                 `;
             }).join('');
@@ -55,7 +60,12 @@ async function loadDashboard() {
             return `
                 <div class="bg-white p-4 rounded mt-3 border-2 border-gray-200">
                     <div class="flex justify-between items-center mb-2">
-                        <span class="${task.status === 'Completed' ? 'line-through text-gray-400' : 'text-gray-900 font-medium'}">${task.description}</span>
+                        <div>
+                            <span class="${task.status === 'Completed' ? 'line-through text-gray-400' : 'text-gray-900 font-medium'}">
+                                ${escapeHTML(task.description)}
+                            </span>
+                            <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">Assigned: ${assignedDate}</p>
+                        </div>
                         ${task.status !== 'Completed' 
                             ? `<button onclick="completeTask(${task.id})" class="text-xs border border-green-600 text-green-700 hover:bg-green-50 px-3 py-1 rounded">Finish</button>` 
                             : `<span class="text-xs text-green-600 font-bold">Done ✓</span>`}
@@ -205,3 +215,26 @@ async function addComment(taskId) {
     if (response.ok) loadDashboard(); 
     else alert("Something went wrong adding your comment!");
 }
+
+// Helper function to prevent XSS attacks
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
+}
+
+let commentsHTML = safeComments.map(c => {
+    const authorName = c.author ? c.author.username : 'Unknown';
+    return `
+        <div class="text-xs text-gray-700 border-l-4 border-gray-300 pl-3 py-1 mt-2">
+            <span class="font-bold text-gray-900">@${authorName}:</span> ${escapeHTML(c.text)}
+        </div>
+    `;
+}).join('');
