@@ -37,13 +37,20 @@ async function loadDashboard() {
     const dashboard = document.getElementById('dashboard');
     dashboard.innerHTML = ''; 
 
+    const archiveContainer = document.getElementById('archive-content');
+    if (archiveContainer) archiveContainer.innerHTML = ''; // Clear archives on load
+
     employees.forEach(emp => {
         const safeTasks = emp.tasks || [];
         
-        let tasksHTML = safeTasks.map(task => {
+        // Filter tasks into Active and Archived
+        const activeTasks = safeTasks.filter(t => !t.is_archived);
+        const archivedTasks = safeTasks.filter(t => t.is_archived);
+        
+        // --- 1. BUILD ACTIVE TASKS FOR DASHBOARD ---
+        let tasksHTML = activeTasks.map(task => {
             const safeComments = task.comments || [];
             
-            // NEW: Format the date into a readable string (e.g., "Oct 24, 2023")
             const assignedDate = new Date(task.created_at).toLocaleDateString(undefined, {
                 month: 'short', day: 'numeric', year: 'numeric'
             });
@@ -66,9 +73,12 @@ async function loadDashboard() {
                             </span>
                             <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">Assigned: ${assignedDate}</p>
                         </div>
-                        ${task.status !== 'Completed' 
-                            ? `<button onclick="completeTask(${task.id})" class="text-xs border border-green-600 text-green-700 hover:bg-green-50 px-3 py-1 rounded">Finish</button>` 
-                            : `<span class="text-xs text-green-600 font-bold">Done ✓</span>`}
+                        <div class="flex gap-2">
+                            ${task.status !== 'Completed' 
+                                ? `<button onclick="completeTask(${task.id})" class="text-xs border border-green-600 text-green-700 hover:bg-green-50 px-3 py-1 rounded">Finish</button>` 
+                                : `<span class="text-xs text-green-600 font-bold self-center">Done ✓</span>`}
+                            <button onclick="archiveTask(${task.id})" class="text-xs border border-gray-400 text-gray-500 hover:bg-gray-100 px-3 py-1 rounded">Archive</button>
+                        </div>
                     </div>
                     
                     <div class="mb-3">${commentsHTML}</div>
@@ -80,6 +90,23 @@ async function loadDashboard() {
                 </div>
             `;
         }).join('');
+
+        // --- 2. ADD ARCHIVED TASKS TO SIDEBAR ---
+        if (archiveContainer) {
+            archivedTasks.forEach(task => {
+                const assignedDate = new Date(task.created_at).toLocaleDateString();
+                archiveContainer.innerHTML += `
+                    <div class="bg-gray-50 p-3 rounded border border-gray-200 opacity-75 mb-3">
+                        <p class="text-xs font-bold text-gray-600 mb-1">${emp.name}'s Task:</p>
+                        <p class="text-sm text-gray-800 line-through">${escapeHTML(task.description)}</p>
+                        <div class="flex justify-between items-center mt-2">
+                            <p class="text-[10px] text-gray-500">${assignedDate}</p>
+                            <button onclick="unarchiveTask(${task.id})" class="text-[10px] text-blue-600 hover:underline">Unarchive</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
 
         let promoteBtn = currentUser.is_admin && !emp.is_admin 
             ? `<button onclick="promoteEmployee(${emp.id})" class="text-xs font-semibold text-gray-500 hover:text-gray-900 mr-3">MAKE ADMIN</button>`
@@ -98,7 +125,6 @@ async function loadDashboard() {
             </div>
         ` : '';
 
-        
         dashboard.innerHTML += `
             <div class="bg-white p-6 rounded-lg border-2 border-gray-300 relative">
                 <div class="absolute top-4 right-4">${promoteBtn} ${deleteBtn}</div>
@@ -110,15 +136,13 @@ async function loadDashboard() {
                 <p class="text-sm text-gray-600 mb-4">${emp.role}</p>
                 <div class="mb-4">
                     <h4 class="font-semibold text-sm text-gray-500 tracking-wider uppercase mb-2">Current Tasks</h4>
-                    ${tasksHTML || '<p class="text-sm text-gray-400">No tasks assigned.</p>'}
+                    ${tasksHTML || '<p class="text-sm text-gray-400">No active tasks.</p>'}
                 </div>
                 ${assignTaskHTML}
             </div>
         `;
     });
 }
-
-
 
 async function login() {
     const usernameInput = document.getElementById("login-username").value;
@@ -216,7 +240,6 @@ async function addComment(taskId) {
     else alert("Something went wrong adding your comment!");
 }
 
-// Helper function to prevent XSS attacks
 function escapeHTML(str) {
     if (!str) return '';
     return str.replace(/[&<>'"]/g, 
@@ -230,11 +253,25 @@ function escapeHTML(str) {
     );
 }
 
-let commentsHTML = safeComments.map(c => {
-    const authorName = c.author ? c.author.username : 'Unknown';
-    return `
-        <div class="text-xs text-gray-700 border-l-4 border-gray-300 pl-3 py-1 mt-2">
-            <span class="font-bold text-gray-900">@${authorName}:</span> ${escapeHTML(c.text)}
-        </div>
-    `;
-}).join('');
+function toggleArchiveMenu() {
+    const sidebar = document.getElementById('archive-sidebar');
+    if (sidebar) sidebar.classList.toggle('-translate-x-full');
+}
+
+async function archiveTask(taskId) {
+    await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: 'PUT', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ is_archived: true })
+    });
+    loadDashboard();
+}
+
+async function unarchiveTask(taskId) {
+    await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: 'PUT', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ is_archived: false })
+    });
+    loadDashboard();
+}
