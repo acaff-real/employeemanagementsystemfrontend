@@ -43,10 +43,8 @@ async function loadDashboard() {
     employees.forEach(emp => {
         const safeTasks = emp.tasks || [];
         
-        
         const activeTasks = safeTasks.filter(t => !t.is_archived);
         const archivedTasks = safeTasks.filter(t => t.is_archived);
-        
         
         let tasksHTML = activeTasks.map(task => {
             const safeComments = task.comments || [];
@@ -54,6 +52,19 @@ async function loadDashboard() {
             const assignedDate = new Date(task.created_at).toLocaleDateString(undefined, {
                 month: 'short', day: 'numeric', year: 'numeric'
             });
+
+            // THIS IS THE PART YOU WERE MISSING: Generating the Drive Link HTML
+            let driveLinkHTML = task.drive_link 
+                ? `<div class="mt-2 text-xs">
+                     <a href="${escapeHTML(task.drive_link)}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 font-medium">
+                       🔗 View Attached Files
+                     </a>
+                     <button onclick="updateDriveLink(${task.id}, true)" class="text-gray-400 hover:text-gray-600 ml-3 text-[10px] uppercase tracking-wide font-bold">Edit Link</button>
+                   </div>`
+                : `<div class="mt-2 flex gap-2 items-center">
+                     <input type="url" id="drive-link-${task.id}" placeholder="Paste Google Drive link..." class="border border-gray-200 p-1.5 rounded text-xs flex-1 outline-none focus:border-blue-400 bg-gray-50">
+                     <button onclick="updateDriveLink(${task.id})" class="bg-blue-50 text-blue-600 font-medium text-xs px-3 py-1.5 rounded border border-blue-200 hover:bg-blue-100 transition-colors">Attach</button>
+                   </div>`;
 
             let commentsHTML = safeComments.map(c => {
                 const authorName = c.author ? c.author.username : 'Unknown';
@@ -66,14 +77,17 @@ async function loadDashboard() {
 
             return `
                 <div class="bg-white p-4 rounded mt-3 border-2 border-gray-200">
-                    <div class="flex justify-between items-center mb-2">
-                        <div>
-                            <span class="${task.status === 'Completed' ? 'line-through text-gray-400' : 'text-gray-900 font-medium'}">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1 pr-2">
+                            <span class="${task.status === 'Completed' ? 'line-through text-gray-400' : 'text-gray-900 font-medium'} block">
                                 ${escapeHTML(task.description)}
                             </span>
                             <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">Assigned: ${assignedDate}</p>
+                            
+                            ${driveLinkHTML}
+                            
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-shrink-0">
                             ${task.status !== 'Completed' 
                                 ? `<button onclick="completeTask(${task.id})" class="text-xs border border-green-600 text-green-700 hover:bg-green-50 px-3 py-1 rounded">Finish</button>` 
                                 : `<span class="text-xs text-green-600 font-bold self-center">Done ✓</span>`}
@@ -83,9 +97,9 @@ async function loadDashboard() {
                     
                     <div class="mb-3">${commentsHTML}</div>
                     
-                    <div class="flex flex-col sm:flex-row gap-2 mt-2">
-                        <input type="text" id="comment-desc-${task.id}" placeholder="Type a comment..." class="border-2 border-gray-200 p-2 rounded text-xs flex-1 w-full outline-none focus:border-gray-500">
-                        <button onclick="addComment(${task.id})" class="border border-gray-800 text-gray-800 text-xs px-4 py-2 rounded hover:bg-gray-100 w-full sm:w-auto">Reply</button>
+                    <div class="flex flex-col sm:flex-row gap-2 mt-2 border-t-2 border-gray-50 pt-3">
+                        <input type="text" id="comment-desc-${task.id}" placeholder="Type a comment..." class="border-2 border-gray-200 p-2 rounded text-xs flex-1 w-full outline-none focus:border-gray-500 bg-gray-50">
+                        <button onclick="addComment(${task.id})" class="border border-gray-800 text-gray-800 font-medium text-xs px-4 py-2 rounded hover:bg-gray-100 w-full sm:w-auto transition-colors">Reply</button>
                     </div>
                 </div>
             `;
@@ -288,16 +302,13 @@ async function unarchiveTask(taskId) {
     loadDashboard();
 }
 
-
 async function updateDriveLink(taskId, isEdit = false) {
     let newLink;
     
     if (isEdit) {
-        
         newLink = prompt("Enter the new Google Drive link:");
         if (newLink === null) return; 
     } else {
-        
         const linkInput = document.getElementById(`drive-link-${taskId}`);
         if (!linkInput.value) return;
         newLink = linkInput.value;
