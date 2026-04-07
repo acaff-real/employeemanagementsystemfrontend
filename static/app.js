@@ -255,7 +255,19 @@ function escapeHTML(str) {
 
 function toggleArchiveMenu() {
     const sidebar = document.getElementById('archive-sidebar');
-    if (sidebar) sidebar.classList.toggle('-translate-x-full');
+    const archiveBtn = document.getElementById('archive-btn');
+    
+    if (sidebar) {
+        // Toggle the slide-out effect
+        sidebar.classList.toggle('-translate-x-full');
+        
+        // Hide the bubble button if the sidebar is open, show it if closed
+        if (sidebar.classList.contains('-translate-x-full')) {
+            archiveBtn.classList.remove('hidden');
+        } else {
+            archiveBtn.classList.add('hidden');
+        }
+    }
 }
 
 async function archiveTask(taskId) {
