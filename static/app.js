@@ -1,4 +1,4 @@
-const API_URL = "https://employeemanagementsystembackend-9i49.onrender.com";
+const API_URL = "https://employeemanagementsystembackend-9i49.onrender.com"
 window.onload = checkAuth;
 let currentUser = null; 
 
@@ -38,16 +38,16 @@ async function loadDashboard() {
     dashboard.innerHTML = ''; 
 
     const archiveContainer = document.getElementById('archive-content');
-    if (archiveContainer) archiveContainer.innerHTML = ''; // Clear archives on load
+    if (archiveContainer) archiveContainer.innerHTML = ''; 
 
     employees.forEach(emp => {
         const safeTasks = emp.tasks || [];
         
-        // Filter tasks into Active and Archived
+        
         const activeTasks = safeTasks.filter(t => !t.is_archived);
         const archivedTasks = safeTasks.filter(t => t.is_archived);
         
-        // --- 1. BUILD ACTIVE TASKS FOR DASHBOARD ---
+        
         let tasksHTML = activeTasks.map(task => {
             const safeComments = task.comments || [];
             
@@ -91,7 +91,7 @@ async function loadDashboard() {
             `;
         }).join('');
 
-        // --- 2. ADD ARCHIVED TASKS TO SIDEBAR ---
+        
         if (archiveContainer) {
             archivedTasks.forEach(task => {
                 const assignedDate = new Date(task.created_at).toLocaleDateString();
@@ -258,10 +258,10 @@ function toggleArchiveMenu() {
     const archiveBtn = document.getElementById('archive-btn');
     
     if (sidebar) {
-        // Toggle the slide-out effect
+        
         sidebar.classList.toggle('-translate-x-full');
         
-        // Hide the bubble button if the sidebar is open, show it if closed
+        
         if (sidebar.classList.contains('-translate-x-full')) {
             archiveBtn.classList.remove('hidden');
         } else {
@@ -284,6 +284,29 @@ async function unarchiveTask(taskId) {
         method: 'PUT', 
         headers: getAuthHeaders(), 
         body: JSON.stringify({ is_archived: false })
+    });
+    loadDashboard();
+}
+
+
+async function updateDriveLink(taskId, isEdit = false) {
+    let newLink;
+    
+    if (isEdit) {
+        
+        newLink = prompt("Enter the new Google Drive link:");
+        if (newLink === null) return; 
+    } else {
+        
+        const linkInput = document.getElementById(`drive-link-${taskId}`);
+        if (!linkInput.value) return;
+        newLink = linkInput.value;
+    }
+
+    await fetch(`${API_URL}/tasks/${taskId}`, {
+        method: 'PUT', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ drive_link: newLink })
     });
     loadDashboard();
 }
