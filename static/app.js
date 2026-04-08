@@ -53,7 +53,6 @@ async function loadDashboard() {
                 month: 'short', day: 'numeric', year: 'numeric'
             });
 
-            // THIS IS THE PART YOU WERE MISSING: Generating the Drive Link HTML
             let driveLinkHTML = task.drive_link 
                 ? `<div class="mt-2 text-xs">
                      <a href="${escapeHTML(task.drive_link)}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 font-medium">
@@ -139,6 +138,11 @@ async function loadDashboard() {
             </div>
         ` : '';
 
+        // FIX: Renders the email link next to the role if one exists
+        const displayEmail = emp.email 
+            ? `<a href="mailto:${escapeHTML(emp.email)}" class="text-blue-500 hover:text-blue-700 hover:underline lowercase ml-2 border-l border-gray-300 pl-2">${escapeHTML(emp.email)}</a>`
+            : '';
+
         dashboard.innerHTML += `
             <div class="bg-white p-6 rounded-lg border-2 border-gray-300 relative">
                 <div class="absolute top-4 right-4">${promoteBtn} ${deleteBtn}</div>
@@ -147,7 +151,9 @@ async function loadDashboard() {
                         (@${emp.username}) ${emp.is_admin ? '[SUDO]' : ''}
                     </span>
                 </h3>
-                <p class="text-sm text-gray-600 mb-4">${emp.role}</p>
+                <p class="text-sm text-gray-600 mb-4 flex items-center">
+                    ${escapeHTML(emp.role)} ${displayEmail}
+                </p>
                 <div class="mb-4">
                     <h4 class="font-semibold text-sm text-gray-500 tracking-wider uppercase mb-2">Current Tasks</h4>
                     ${tasksHTML || '<p class="text-sm text-gray-400">No active tasks.</p>'}
@@ -195,6 +201,7 @@ function getAuthHeaders() {
 async function addEmployee() {
     const nameInput = document.getElementById('emp-name');
     const roleInput = document.getElementById('emp-role');
+    const emailInput = document.getElementById('emp-email');
     const usernameInput = document.getElementById('emp-username');
     const passwordInput = document.getElementById('emp-password');
     const isAdminInput = document.getElementById('emp-is-admin'); 
@@ -205,13 +212,14 @@ async function addEmployee() {
         body: JSON.stringify({ 
             name: nameInput.value, 
             role: roleInput.value,
+            email: emailInput.value, 
             username: usernameInput.value,
             password: passwordInput.value,
             is_admin: isAdminInput.checked 
         })
     });
 
-    nameInput.value = ''; roleInput.value = ''; usernameInput.value = ''; passwordInput.value = '';
+    nameInput.value = ''; roleInput.value = ''; usernameInput.value = ''; emailInput.value = ''; passwordInput.value = '';
     isAdminInput.checked = false;
     loadDashboard(); 
 }
