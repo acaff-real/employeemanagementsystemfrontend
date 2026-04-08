@@ -164,11 +164,14 @@ async function loadDashboard() {
     });
 }
 
+// REPLACE YOUR EXISTING login() WITH THIS:
 async function login() {
-    const usernameInput = document.getElementById("login-username").value;
+    const emailInput = document.getElementById("login-email").value;
     const passwordInput = document.getElementById("login-password").value;
     const formData = new URLSearchParams();
-    formData.append("username", usernameInput);
+    
+    // FastAPI requires the key to be "username", even though we are sending an email
+    formData.append("username", emailInput);
     formData.append("password", passwordInput);
 
     const response = await fetch(`${API_URL}/login`, {
@@ -182,7 +185,7 @@ async function login() {
         localStorage.setItem("token", data.access_token);
         checkAuth();
     } else {
-        alert("Invalid username or password");
+        alert("Invalid email or password");
     }
 }
 
@@ -328,4 +331,33 @@ async function updateDriveLink(taskId, isEdit = false) {
         body: JSON.stringify({ drive_link: newLink })
     });
     loadDashboard();
+}
+
+// ADD THESE TO THE BOTTOM OF app.js
+function toggleForgotPassword() {
+    document.getElementById("login-box").classList.toggle("hidden");
+    document.getElementById("forgot-box").classList.toggle("hidden");
+    document.getElementById("reset-msg").classList.add("hidden"); // Clear old messages
+}
+
+async function sendResetLink() {
+    const email = document.getElementById("reset-email").value;
+    if (!email) return alert("Please enter your email.");
+
+    const msgEl = document.getElementById("reset-msg");
+    msgEl.textContent = "Sending email...";
+    msgEl.className = "text-sm text-center mt-3 font-medium text-gray-600"; 
+    
+    try {
+        const response = await fetch(`${API_URL}/forgot-password?email=${encodeURIComponent(email)}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        msgEl.textContent = data.message;
+        msgEl.className = "text-sm text-center mt-3 font-medium text-green-600";
+    } catch (error) {
+        msgEl.textContent = "Something went wrong. Try again.";
+        msgEl.className = "text-sm text-center mt-3 font-medium text-red-600";
+    }
 }

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 md:p-8 font-sans flex items-center justify-center min-h-screen">
+    
+    <div class="bg-white p-6 rounded-lg border-2 border-gray-300 max-w-md w-full shadow-lg">
+        <h2 class="text-2xl font-bold mb-2 text-center text-gray-900">New Password</h2>
+        <p class="text-sm text-gray-500 mb-6 text-center">Create a new password for your account.</p>
+        
+        <div id="reset-form" class="space-y-4">
+            <input type="password" id="new-password" placeholder="New Password" class="border-2 border-gray-200 p-2 rounded w-full focus:border-gray-800 outline-none">
+            <input type="password" id="confirm-password" placeholder="Confirm Password" class="border-2 border-gray-200 p-2 rounded w-full focus:border-gray-800 outline-none">
+            <button onclick="submitNewPassword()" class="bg-blue-600 text-white px-6 py-2 rounded w-full hover:bg-blue-700 transition-colors">Reset Password</button>
+        </div>
+        
+        <div id="status-message" class="mt-4 text-center text-sm hidden font-medium"></div>
+        
+        <div class="mt-6 text-center border-t border-gray-100 pt-4">
+            <a href="./index.html" class="text-sm text-gray-600 hover:text-gray-900 hover:underline">Return to Login</a>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://employeemanagementsystembackend-9i49.onrender.com";
+
+        async function submitNewPassword() {
+            // Grab the ?token=XXXX part from the URL
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('token');
+            
+            if (!token) {
+                showStatus("Invalid or missing reset token. Please request a new link.", false);
+                return;
+            }
+
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            if (newPassword !== confirmPassword) {
+                showStatus("Passwords do not match!", false);
+                return;
+            }
+            if (newPassword.length < 4) {
+                showStatus("Password must be at least 4 characters long.", false);
+                return;
+            }
+
+            showStatus("Resetting password...", true, true);
+
+            try {
+                // Call your FastAPI /reset-password endpoint
+                const response = await fetch(`${API_URL}/reset-password?token=${encodeURIComponent(token)}&new_password=${encodeURIComponent(newPassword)}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus("Password reset successfully! You can now log in.", true);
+                    document.getElementById('reset-form').style.display = 'none';
+                } else {
+                    showStatus(data.detail || "Failed to reset password.", false);
+                }
+            } catch (error) {
+                showStatus("A network error occurred. Ensure your backend is running.", false);
+            }
+        }
+
+        function showStatus(text, isSuccess, isNeutral = false) {
+            const msgDiv = document.getElementById('status-message');
+            msgDiv.textContent = text;
+            msgDiv.classList.remove('hidden', 'text-red-600', 'text-green-600', 'text-gray-600');
+            
+            if (isNeutral) {
+                msgDiv.classList.add('text-gray-600');
+            } else if (isSuccess) {
+                msgDiv.classList.add('text-green-600');
+            } else {
+                msgDiv.classList.add('text-red-600');
+            }
+        }
+    </script>
+</body>
+</html>
