@@ -20,7 +20,7 @@ async function checkAuth() {
             if(document.getElementById("side-initials")) {
                 document.getElementById("side-initials").textContent = initials;
                 document.getElementById("side-username").textContent = currentUser.username;
-                document.getElementById("side-role").textContent = currentUser.is_admin ? "SUDO / ADMIN" : "STANDARD_ACCESS";
+                document.getElementById("side-role").textContent = currentUser.is_admin ? "ADMIN" : "STANDARD USER";
             }
 
             // Show/Hide Admin Controls
@@ -67,17 +67,17 @@ async function loadDashboard() {
         // 1. GENERATE TEAM CARDS (The Bento Grid items)
         const initials = emp.name.substring(0, 2).toUpperCase();
         let promoteBtn = currentUser.is_admin && !emp.is_admin 
-            ? `<button onclick="promoteEmployee(${emp.id})" class="text-[9px] font-bold text-[#717c82] hover:text-primary uppercase tracking-widest bg-surface-container-highest px-2 py-1 rigid-border">SUDO</button>`
+            ? `<button onclick="promoteEmployee(${emp.id})" class="text-[9px] font-bold text-[#717c82] hover:text-primary uppercase tracking-widest bg-surface-container-highest px-2 py-1 rigid-border">MAKE ADMIN</button>`
             : '';
         let deleteBtn = currentUser.is_admin && currentUser.id !== emp.id 
-            ? `<button onclick="deleteEmployee(${emp.id})" class="text-[9px] font-bold text-error hover:bg-error hover:text-white uppercase tracking-widest bg-error/10 px-2 py-1 rigid-border">DEL</button>`
+            ? `<button onclick="deleteEmployee(${emp.id})" class="text-[9px] font-bold text-error hover:bg-error hover:text-white uppercase tracking-widest bg-error/10 px-2 py-1 rigid-border">DELETE</button>`
             : '';
 
         let canAssignTask = currentUser.is_admin || currentUser.id === emp.id;
         let assignTaskHTML = canAssignTask ? `
             <div class="mt-4 pt-4 border-t border-[#2a3439]/20 flex gap-2">
-                <input type="text" id="task-desc-${emp.id}" placeholder="Assign Task..." class="rigid-border p-2 text-xs flex-1 outline-none focus:bg-surface-container-highest font-body placeholder:text-gray-400">
-                <button onclick="addTask(${emp.id})" class="bg-[#2a3439] text-white material-symbols-outlined rigid-border hover:bg-black px-2 text-sm">send</button>
+                <input type="text" id="task-desc-${emp.id}" placeholder="Type new task..." class="rigid-border p-2 text-xs flex-1 outline-none focus:bg-surface-container-highest font-body placeholder:text-gray-400">
+                <button onclick="addTask(${emp.id})" class="bg-[#2a3439] text-white material-symbols-outlined rigid-border hover:bg-black px-2 text-sm">add</button>
             </div>
         ` : '';
 
@@ -104,11 +104,11 @@ async function loadDashboard() {
 
             let driveLinkHTML = task.drive_link 
                 ? `<div class="mt-2 text-xs font-body">
-                     <a href="${escapeHTML(task.drive_link)}" target="_blank" class="text-primary hover:text-primary-dim hover:underline font-bold inline-flex items-center gap-1">🔗 View Data Source</a>
-                     <button onclick="updateDriveLink(${task.id}, true)" class="text-[#717c82] hover:text-[#2a3439] ml-4 text-[10px] label-technical tracking-wide">Edit_Link</button>
+                     <a href="${escapeHTML(task.drive_link)}" target="_blank" class="text-primary hover:text-primary-dim hover:underline font-bold inline-flex items-center gap-1">🔗 View Attachment</a>
+                     <button onclick="updateDriveLink(${task.id}, true)" class="text-[#717c82] hover:text-[#2a3439] ml-4 text-[10px] label-technical tracking-wide">Edit Link</button>
                    </div>`
                 : `<div class="mt-2 flex gap-2 items-center">
-                     <input type="url" id="drive-link-${task.id}" placeholder="Paste URL..." class="rigid-border p-1.5 text-xs flex-1 outline-none focus:bg-surface-container font-body">
+                     <input type="url" id="drive-link-${task.id}" placeholder="Paste file link..." class="rigid-border p-1.5 text-xs flex-1 outline-none focus:bg-surface-container font-body">
                      <button onclick="updateDriveLink(${task.id})" class="bg-surface-container-highest text-on-background font-bold label-technical text-[10px] px-3 py-1.5 rigid-border hover:bg-[#d4e3ff]">Attach</button>
                    </div>`;
 
@@ -121,7 +121,7 @@ async function loadDashboard() {
                 <div class="bg-surface-container-lowest rigid-border p-5 relative group">
                     <div class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-2">
                         <div class="flex-1">
-                            <div class="label-technical text-[9px] text-[#717c82] mb-1">ASSIGNED TO: ${escapeHTML(emp.name)} <span class="mx-2">|</span> ID: TSK-${task.id} <span class="mx-2">|</span> DATE: ${assignedDate}</div>
+                            <div class="label-technical text-[9px] text-[#717c82] mb-1">ASSIGNED TO: ${escapeHTML(emp.name)} <span class="mx-2">|</span> DATE: ${assignedDate}</div>
                             <span class="${task.status === 'Completed' ? 'line-through text-[#717c82]' : 'text-on-background font-bold'} text-lg font-headline uppercase leading-tight block">
                                 ${escapeHTML(task.description)}
                             </span>
@@ -129,8 +129,8 @@ async function loadDashboard() {
                         </div>
                         <div class="flex gap-2 flex-shrink-0 mt-2 sm:mt-0">
                             ${task.status !== 'Completed' 
-                                ? `<button onclick="completeTask(${task.id})" class="label-technical text-[10px] bg-[#e1e9ee] text-primary hover:bg-primary hover:text-white px-3 py-2 rigid-border transition-colors">Mark_Done</button>` 
-                                : `<span class="label-technical text-[10px] text-green-600 px-3 py-2 rigid-border border-green-600 bg-green-50">Verified_✓</span>`}
+                                ? `<button onclick="completeTask(${task.id})" class="label-technical text-[10px] bg-[#e1e9ee] text-primary hover:bg-primary hover:text-white px-3 py-2 rigid-border transition-colors">Finish</button>` 
+                                : `<span class="label-technical text-[10px] text-green-600 px-3 py-2 rigid-border border-green-600 bg-green-50">Completed ✓</span>`}
                             <button onclick="archiveTask(${task.id})" class="material-symbols-outlined text-[#717c82] hover:text-on-background rigid-border px-2 py-1 bg-surface" title="Archive">inventory_2</button>
                         </div>
                     </div>
@@ -138,8 +138,8 @@ async function loadDashboard() {
                     <div class="mb-3 pl-2">${commentsHTML}</div>
                     
                     <div class="flex gap-2 mt-4 pt-3 border-t border-[#2a3439]/10">
-                        <input type="text" id="comment-desc-${task.id}" placeholder="Enter comms log..." class="rigid-border p-2 text-xs flex-1 outline-none focus:bg-surface-container font-body">
-                        <button onclick="addComment(${task.id})" class="bg-surface-container-highest text-on-background label-technical text-[10px] px-4 py-2 rigid-border hover:bg-[#d4e3ff]">Transmit</button>
+                        <input type="text" id="comment-desc-${task.id}" placeholder="Type a comment..." class="rigid-border p-2 text-xs flex-1 outline-none focus:bg-surface-container font-body">
+                        <button onclick="addComment(${task.id})" class="bg-surface-container-highest text-on-background label-technical text-[10px] px-4 py-2 rigid-border hover:bg-[#d4e3ff]">Reply</button>
                     </div>
                 </div>
             `;
@@ -150,7 +150,7 @@ async function loadDashboard() {
             const assignedDate = new Date(task.created_at || Date.now()).toLocaleDateString();
             archiveContainer.innerHTML += `
                 <div class="bg-surface p-3 rigid-border mb-3 font-body opacity-80 hover:opacity-100">
-                    <p class="label-technical text-[9px] text-[#717c82] mb-1">${escapeHTML(emp.name)} // TSK-${task.id}</p>
+                    <p class="label-technical text-[9px] text-[#717c82] mb-1">${escapeHTML(emp.name)}</p>
                     <p class="text-xs text-on-background line-through uppercase font-bold">${escapeHTML(task.description)}</p>
                     <div class="flex justify-between items-center mt-3 pt-2 border-t border-[#2a3439]/20">
                         <p class="text-[9px] font-mono text-[#717c82]">${assignedDate}</p>
@@ -161,7 +161,7 @@ async function loadDashboard() {
         });
     });
 
-    tasksFeed.innerHTML = allActiveTasksHTML || '<div class="p-8 text-center border-2 border-dashed border-[#717c82] text-[#717c82] font-headline uppercase">No active assignments found in database.</div>';
+    tasksFeed.innerHTML = allActiveTasksHTML || '<div class="p-8 text-center border-2 border-dashed border-[#717c82] text-[#717c82] font-headline uppercase">No active tasks found.</div>';
     
     // Update Metrics
     document.getElementById('metric-staff').textContent = employees.length.toString().padStart(2, '0');
@@ -189,7 +189,7 @@ async function login() {
         localStorage.setItem("token", data.access_token);
         checkAuth();
     } else {
-        alert("ACCESS DENIED: Invalid credentials.");
+        alert("Invalid email or password.");
     }
 }
 
@@ -252,13 +252,13 @@ async function addEmployee() {
 }
 
 async function deleteEmployee(employeeId) {
-    if(!confirm("WARNING: Are you sure you want to permanently delete this record?")) return;
+    if(!confirm("Are you sure you want to permanently delete this employee?")) return;
     await fetch(`${API_URL}/employees/${employeeId}`, { method: 'DELETE', headers: getAuthHeaders() });
     loadDashboard();
 }
 
 async function promoteEmployee(employeeId) {
-    if(!confirm("WARNING: Grant SUDO privileges to this identity?")) return;
+    if(!confirm("Are you sure you want to make this user an Admin?")) return;
     await fetch(`${API_URL}/employees/${employeeId}/promote`, { method: 'PUT', headers: getAuthHeaders() });
     loadDashboard();
 }
@@ -285,7 +285,7 @@ async function addComment(taskId) {
     const response = await fetch(`${API_URL}/tasks/${taskId}/comments`, {
         method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ text: textInput.value })
     });
-    if (response.ok) loadDashboard(); else alert("Communication log failed.");
+    if (response.ok) loadDashboard(); else alert("Something went wrong adding your comment.");
 }
 
 async function archiveTask(taskId) {
@@ -301,7 +301,7 @@ async function unarchiveTask(taskId) {
 async function updateDriveLink(taskId, isEdit = false) {
     let newLink;
     if (isEdit) {
-        newLink = prompt("Enter the new external data URL:");
+        newLink = prompt("Enter the new file URL:");
         if (newLink === null) return; 
     } else {
         const linkInput = document.getElementById(`drive-link-${taskId}`);
@@ -314,10 +314,10 @@ async function updateDriveLink(taskId, isEdit = false) {
 
 async function sendResetLink() {
     const email = document.getElementById("reset-email").value;
-    if (!email) return alert("Email required.");
+    if (!email) return alert("Please enter your email address.");
 
     const msgEl = document.getElementById("reset-msg");
-    msgEl.textContent = "Transmitting...";
+    msgEl.textContent = "Sending...";
     msgEl.className = "text-xs text-left mt-4 font-bold font-body text-[#717c82] block"; 
     
     try {
@@ -326,7 +326,7 @@ async function sendResetLink() {
         msgEl.textContent = data.message;
         msgEl.className = "text-xs text-left mt-4 font-bold font-body text-green-600 block";
     } catch (error) {
-        msgEl.textContent = "Transmission failed. Verify backend status.";
+        msgEl.textContent = "Something went wrong. Try again.";
         msgEl.className = "text-xs text-left mt-4 font-bold font-body text-error block";
     }
 }
