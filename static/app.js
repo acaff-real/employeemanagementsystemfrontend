@@ -62,7 +62,9 @@ async function loadDashboard() {
         const archivedTasks = safeTasks.filter(t => t.is_archived);
         
         // Count metrics
-        totalTasksCompleted += safeTasks.filter(t => t.status === 'Completed').length;
+        if (currentUser.is_admin || emp.id === currentUser.id) {
+            totalTasksCompleted += safeTasks.filter(t => t.status === 'Completed').length;
+        }
 
         // 1. GENERATE TEAM CARDS (The Bento Grid items)
         const initials = emp.name.substring(0, 2).toUpperCase();
@@ -163,9 +165,15 @@ async function loadDashboard() {
 
     tasksFeed.innerHTML = allActiveTasksHTML || '<div class="p-8 text-center border-2 border-dashed border-[#717c82] text-[#717c82] font-headline uppercase">No active tasks found.</div>';
     
-    // Update Metrics
+    
     document.getElementById('metric-staff').textContent = employees.length.toString().padStart(2, '0');
     document.getElementById('metric-tasks').textContent = totalTasksCompleted.toLocaleString();
+    
+    
+    const tasksLabel = document.getElementById('metric-tasks-label');
+    if (tasksLabel) {
+        tasksLabel.textContent = currentUser.is_admin ? "Company-wide tasks finished" : "Your personal tasks finished";
+    }
 }
 
 // === AUTHENTICATION LOGIC ===
