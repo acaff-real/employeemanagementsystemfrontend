@@ -9,16 +9,28 @@ async function checkAuth() {
         
         if (response.ok) {
             currentUser = await response.json();
+            
+            // Toggle Visibility
             document.getElementById("login-section").classList.add("hidden");
             document.getElementById("app-section").classList.remove("hidden");
-            document.getElementById("logout-btn").classList.remove("hidden");
             
-            const addEmployeeForm = document.getElementById("add-employee-form");
-            if (currentUser.is_admin) {
-                addEmployeeForm.classList.remove("hidden");
-            } else {
-                addEmployeeForm.classList.add("hidden");
+            // Set User Data in Header/Nav
+            const initials = currentUser.name.substring(0, 2).toUpperCase();
+            document.getElementById("header-initials").textContent = initials;
+            if(document.getElementById("side-initials")) {
+                document.getElementById("side-initials").textContent = initials;
+                document.getElementById("side-username").textContent = currentUser.username;
+                document.getElementById("side-role").textContent = currentUser.is_admin ? "SUDO / ADMIN" : "STANDARD_ACCESS";
             }
+
+            // Show/Hide Admin Controls
+            const adminControls = document.getElementById("admin-controls");
+            if (currentUser.is_admin) {
+                adminControls.classList.remove("hidden");
+            } else {
+                adminControls.classList.add("hidden");
+            }
+            
             loadDashboard();
         } else {
             logout();
@@ -26,7 +38,6 @@ async function checkAuth() {
     } else {
         document.getElementById("login-section").classList.remove("hidden");
         document.getElementById("app-section").classList.add("hidden");
-        document.getElementById("logout-btn").classList.add("hidden");
     }
 }
 
@@ -34,143 +45,136 @@ async function loadDashboard() {
     const response = await fetch(`${API_URL}/employees/`);
     const employees = await response.json();
     
-    const dashboard = document.getElementById('dashboard');
-    dashboard.innerHTML = ''; 
-
+    const teamGrid = document.getElementById('team-grid');
+    const tasksFeed = document.getElementById('tasks-feed');
     const archiveContainer = document.getElementById('archive-content');
-    if (archiveContainer) archiveContainer.innerHTML = ''; 
+    
+    teamGrid.innerHTML = ''; 
+    tasksFeed.innerHTML = '';
+    archiveContainer.innerHTML = ''; 
+
+    let totalTasksCompleted = 0;
+    let allActiveTasksHTML = '';
 
     employees.forEach(emp => {
         const safeTasks = emp.tasks || [];
-        
         const activeTasks = safeTasks.filter(t => !t.is_archived);
         const archivedTasks = safeTasks.filter(t => t.is_archived);
         
-        let tasksHTML = activeTasks.map(task => {
-            const safeComments = task.comments || [];
-            
-            const assignedDate = new Date(task.created_at).toLocaleDateString(undefined, {
-                month: 'short', day: 'numeric', year: 'numeric'
-            });
+        // Count metrics
+        totalTasksCompleted += safeTasks.filter(t => t.status === 'Completed').length;
 
-            let driveLinkHTML = task.drive_link 
-                ? `<div class="mt-2 text-xs">
-                     <a href="${escapeHTML(task.drive_link)}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 font-medium">
-                       🔗 View Attached Files
-                     </a>
-                     <button onclick="updateDriveLink(${task.id}, true)" class="text-gray-400 hover:text-gray-600 ml-3 text-[10px] uppercase tracking-wide font-bold">Edit Link</button>
-                   </div>`
-                : `<div class="mt-2 flex gap-2 items-center">
-                     <input type="url" id="drive-link-${task.id}" placeholder="Paste Google Drive link..." class="border border-gray-200 p-1.5 rounded text-xs flex-1 outline-none focus:border-blue-400 bg-gray-50">
-                     <button onclick="updateDriveLink(${task.id})" class="bg-blue-50 text-blue-600 font-medium text-xs px-3 py-1.5 rounded border border-blue-200 hover:bg-blue-100 transition-colors">Attach</button>
-                   </div>`;
-
-            let commentsHTML = safeComments.map(c => {
-                const authorName = c.author ? c.author.username : 'Unknown';
-                return `
-                    <div class="text-xs text-gray-700 border-l-4 border-gray-300 pl-3 py-1 mt-2">
-                        <span class="font-bold text-gray-900">@${authorName}:</span> ${escapeHTML(c.text)}
-                    </div>
-                `;
-            }).join('');
-
-            return `
-                <div class="bg-white p-4 rounded mt-3 border-2 border-gray-200">
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="flex-1 pr-2">
-                            <span class="${task.status === 'Completed' ? 'line-through text-gray-400' : 'text-gray-900 font-medium'} block">
-                                ${escapeHTML(task.description)}
-                            </span>
-                            <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">Assigned: ${assignedDate}</p>
-                            
-                            ${driveLinkHTML}
-                            
-                        </div>
-                        <div class="flex gap-2 flex-shrink-0">
-                            ${task.status !== 'Completed' 
-                                ? `<button onclick="completeTask(${task.id})" class="text-xs border border-green-600 text-green-700 hover:bg-green-50 px-3 py-1 rounded">Finish</button>` 
-                                : `<span class="text-xs text-green-600 font-bold self-center">Done ✓</span>`}
-                            <button onclick="archiveTask(${task.id})" class="text-xs border border-gray-400 text-gray-500 hover:bg-gray-100 px-3 py-1 rounded">Archive</button>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">${commentsHTML}</div>
-                    
-                    <div class="flex flex-col sm:flex-row gap-2 mt-2 border-t-2 border-gray-50 pt-3">
-                        <input type="text" id="comment-desc-${task.id}" placeholder="Type a comment..." class="border-2 border-gray-200 p-2 rounded text-xs flex-1 w-full outline-none focus:border-gray-500 bg-gray-50">
-                        <button onclick="addComment(${task.id})" class="border border-gray-800 text-gray-800 font-medium text-xs px-4 py-2 rounded hover:bg-gray-100 w-full sm:w-auto transition-colors">Reply</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        
-        if (archiveContainer) {
-            archivedTasks.forEach(task => {
-                const assignedDate = new Date(task.created_at).toLocaleDateString();
-                archiveContainer.innerHTML += `
-                    <div class="bg-gray-50 p-3 rounded border border-gray-200 opacity-75 mb-3">
-                        <p class="text-xs font-bold text-gray-600 mb-1">${emp.name}'s Task:</p>
-                        <p class="text-sm text-gray-800 line-through">${escapeHTML(task.description)}</p>
-                        <div class="flex justify-between items-center mt-2">
-                            <p class="text-[10px] text-gray-500">${assignedDate}</p>
-                            <button onclick="unarchiveTask(${task.id})" class="text-[10px] text-blue-600 hover:underline">Unarchive</button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
+        // 1. GENERATE TEAM CARDS (The Bento Grid items)
+        const initials = emp.name.substring(0, 2).toUpperCase();
         let promoteBtn = currentUser.is_admin && !emp.is_admin 
-            ? `<button onclick="promoteEmployee(${emp.id})" class="text-xs font-semibold text-gray-500 hover:text-gray-900 mr-3">MAKE ADMIN</button>`
+            ? `<button onclick="promoteEmployee(${emp.id})" class="text-[9px] font-bold text-[#717c82] hover:text-primary uppercase tracking-widest bg-surface-container-highest px-2 py-1 rigid-border">SUDO</button>`
             : '';
-
         let deleteBtn = currentUser.is_admin && currentUser.id !== emp.id 
-            ? `<button onclick="deleteEmployee(${emp.id})" class="text-xs font-semibold text-red-500 hover:text-red-700">DELETE</button>`
+            ? `<button onclick="deleteEmployee(${emp.id})" class="text-[9px] font-bold text-error hover:bg-error hover:text-white uppercase tracking-widest bg-error/10 px-2 py-1 rigid-border">DEL</button>`
             : '';
 
         let canAssignTask = currentUser.is_admin || currentUser.id === emp.id;
-        
         let assignTaskHTML = canAssignTask ? `
-            <div class="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t-2 border-gray-100">
-                <input type="text" id="task-desc-${emp.id}" placeholder="New task..." class="border-2 border-gray-200 p-2 rounded text-sm flex-1 w-full outline-none focus:border-gray-800">
-                <button onclick="addTask(${emp.id})" class="bg-gray-800 text-white text-sm px-4 py-2 rounded w-full sm:w-auto hover:bg-gray-900">Assign</button>
+            <div class="mt-4 pt-4 border-t border-[#2a3439]/20 flex gap-2">
+                <input type="text" id="task-desc-${emp.id}" placeholder="Assign Task..." class="rigid-border p-2 text-xs flex-1 outline-none focus:bg-surface-container-highest font-body placeholder:text-gray-400">
+                <button onclick="addTask(${emp.id})" class="bg-[#2a3439] text-white material-symbols-outlined rigid-border hover:bg-black px-2 text-sm">send</button>
             </div>
         ` : '';
 
-        // FIX: Renders the email link next to the role if one exists
-        const displayEmail = emp.email 
-            ? `<a href="mailto:${escapeHTML(emp.email)}" class="text-blue-500 hover:text-blue-700 hover:underline lowercase ml-2 border-l border-gray-300 pl-2">${escapeHTML(emp.email)}</a>`
-            : '';
+        const displayEmail = emp.email ? `<br><a href="mailto:${escapeHTML(emp.email)}" class="text-primary hover:underline lowercase">${escapeHTML(emp.email)}</a>` : '';
 
-        dashboard.innerHTML += `
-            <div class="bg-white p-6 rounded-lg border-2 border-gray-300 relative">
-                <div class="absolute top-4 right-4">${promoteBtn} ${deleteBtn}</div>
-                <h3 class="text-lg font-bold text-gray-900">${emp.name} 
-                    <span class="text-xs font-normal ${emp.is_admin ? 'text-red-600 font-bold' : 'text-gray-500'}">
-                        (@${emp.username}) ${emp.is_admin ? '[SUDO]' : ''}
-                    </span>
-                </h3>
-                <p class="text-sm text-gray-600 mb-4 flex items-center">
-                    ${escapeHTML(emp.role)} ${displayEmail}
-                </p>
-                <div class="mb-4">
-                    <h4 class="font-semibold text-sm text-gray-500 tracking-wider uppercase mb-2">Current Tasks</h4>
-                    ${tasksHTML || '<p class="text-sm text-gray-400">No active tasks.</p>'}
+        teamGrid.innerHTML += `
+            <div class="bg-surface-container-lowest rigid-border p-6 hover:bg-surface-container transition-none relative flex flex-col justify-between">
+                <div class="absolute top-4 right-4 flex gap-1">${promoteBtn} ${deleteBtn}</div>
+                <div class="flex items-center gap-4 mb-2 mt-4">
+                    <div class="w-12 h-12 ${emp.is_admin ? 'bg-error' : 'bg-[#495f84]'} text-white font-black flex items-center justify-center text-lg rigid-border font-headline">${initials}</div>
+                    <div>
+                        <h3 class="font-bold text-on-background font-headline text-sm uppercase leading-tight">${escapeHTML(emp.name)}</h3>
+                        <p class="label-technical text-[9px] text-[#717c82] mt-1">${escapeHTML(emp.role)} | @${escapeHTML(emp.username)} ${displayEmail}</p>
+                    </div>
                 </div>
                 ${assignTaskHTML}
             </div>
         `;
+
+        // 2. GENERATE TASKS FEED (Extracting all tasks into the central list)
+        activeTasks.forEach(task => {
+            const safeComments = task.comments || [];
+            const assignedDate = new Date(task.created_at || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+            let driveLinkHTML = task.drive_link 
+                ? `<div class="mt-2 text-xs font-body">
+                     <a href="${escapeHTML(task.drive_link)}" target="_blank" class="text-primary hover:text-primary-dim hover:underline font-bold inline-flex items-center gap-1">🔗 View Data Source</a>
+                     <button onclick="updateDriveLink(${task.id}, true)" class="text-[#717c82] hover:text-[#2a3439] ml-4 text-[10px] label-technical tracking-wide">Edit_Link</button>
+                   </div>`
+                : `<div class="mt-2 flex gap-2 items-center">
+                     <input type="url" id="drive-link-${task.id}" placeholder="Paste URL..." class="rigid-border p-1.5 text-xs flex-1 outline-none focus:bg-surface-container font-body">
+                     <button onclick="updateDriveLink(${task.id})" class="bg-surface-container-highest text-on-background font-bold label-technical text-[10px] px-3 py-1.5 rigid-border hover:bg-[#d4e3ff]">Attach</button>
+                   </div>`;
+
+            let commentsHTML = safeComments.map(c => {
+                const authorName = c.author ? c.author.username : 'Unknown';
+                return `<div class="text-xs text-on-background border-l-4 border-primary pl-3 py-1 mt-2 font-body"><span class="font-bold">@${escapeHTML(authorName)}:</span> ${escapeHTML(c.text)}</div>`;
+            }).join('');
+
+            allActiveTasksHTML += `
+                <div class="bg-surface-container-lowest rigid-border p-5 relative group">
+                    <div class="flex flex-col sm:flex-row justify-between items-start gap-4 mb-2">
+                        <div class="flex-1">
+                            <div class="label-technical text-[9px] text-[#717c82] mb-1">ASSIGNED TO: ${escapeHTML(emp.name)} <span class="mx-2">|</span> ID: TSK-${task.id} <span class="mx-2">|</span> DATE: ${assignedDate}</div>
+                            <span class="${task.status === 'Completed' ? 'line-through text-[#717c82]' : 'text-on-background font-bold'} text-lg font-headline uppercase leading-tight block">
+                                ${escapeHTML(task.description)}
+                            </span>
+                            ${driveLinkHTML}
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0 mt-2 sm:mt-0">
+                            ${task.status !== 'Completed' 
+                                ? `<button onclick="completeTask(${task.id})" class="label-technical text-[10px] bg-[#e1e9ee] text-primary hover:bg-primary hover:text-white px-3 py-2 rigid-border transition-colors">Mark_Done</button>` 
+                                : `<span class="label-technical text-[10px] text-green-600 px-3 py-2 rigid-border border-green-600 bg-green-50">Verified_✓</span>`}
+                            <button onclick="archiveTask(${task.id})" class="material-symbols-outlined text-[#717c82] hover:text-on-background rigid-border px-2 py-1 bg-surface" title="Archive">inventory_2</button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 pl-2">${commentsHTML}</div>
+                    
+                    <div class="flex gap-2 mt-4 pt-3 border-t border-[#2a3439]/10">
+                        <input type="text" id="comment-desc-${task.id}" placeholder="Enter comms log..." class="rigid-border p-2 text-xs flex-1 outline-none focus:bg-surface-container font-body">
+                        <button onclick="addComment(${task.id})" class="bg-surface-container-highest text-on-background label-technical text-[10px] px-4 py-2 rigid-border hover:bg-[#d4e3ff]">Transmit</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        // 3. GENERATE ARCHIVE (Sidebar)
+        archivedTasks.forEach(task => {
+            const assignedDate = new Date(task.created_at || Date.now()).toLocaleDateString();
+            archiveContainer.innerHTML += `
+                <div class="bg-surface p-3 rigid-border mb-3 font-body opacity-80 hover:opacity-100">
+                    <p class="label-technical text-[9px] text-[#717c82] mb-1">${escapeHTML(emp.name)} // TSK-${task.id}</p>
+                    <p class="text-xs text-on-background line-through uppercase font-bold">${escapeHTML(task.description)}</p>
+                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-[#2a3439]/20">
+                        <p class="text-[9px] font-mono text-[#717c82]">${assignedDate}</p>
+                        <button onclick="unarchiveTask(${task.id})" class="label-technical text-[9px] text-primary hover:underline">Restore</button>
+                    </div>
+                </div>
+            `;
+        });
     });
+
+    tasksFeed.innerHTML = allActiveTasksHTML || '<div class="p-8 text-center border-2 border-dashed border-[#717c82] text-[#717c82] font-headline uppercase">No active assignments found in database.</div>';
+    
+    // Update Metrics
+    document.getElementById('metric-staff').textContent = employees.length.toString().padStart(2, '0');
+    document.getElementById('metric-tasks').textContent = totalTasksCompleted.toLocaleString();
 }
 
-// REPLACE YOUR EXISTING login() WITH THIS:
+// === AUTHENTICATION LOGIC ===
+
 async function login() {
     const emailInput = document.getElementById("login-email").value;
     const passwordInput = document.getElementById("login-password").value;
     const formData = new URLSearchParams();
     
-    // FastAPI requires the key to be "username", even though we are sending an email
     formData.append("username", emailInput);
     formData.append("password", passwordInput);
 
@@ -185,7 +189,7 @@ async function login() {
         localStorage.setItem("token", data.access_token);
         checkAuth();
     } else {
-        alert("Invalid email or password");
+        alert("ACCESS DENIED: Invalid credentials.");
     }
 }
 
@@ -201,6 +205,29 @@ function getAuthHeaders() {
     };
 }
 
+// === UI TOGGLES ===
+
+function toggleAddEmployee() {
+    document.getElementById('add-employee-form').classList.toggle('hidden');
+}
+
+function toggleArchiveMenu() {
+    const sidebar = document.getElementById('archive-sidebar');
+    if (sidebar.classList.contains('translate-x-full')) {
+        sidebar.classList.remove('translate-x-full');
+    } else {
+        sidebar.classList.add('translate-x-full');
+    }
+}
+
+function toggleForgotPassword() {
+    document.getElementById("login-box").classList.toggle("hidden");
+    document.getElementById("forgot-box").classList.toggle("hidden");
+    document.getElementById("reset-msg").classList.add("hidden"); 
+}
+
+// === API ACTIONS ===
+
 async function addEmployee() {
     const nameInput = document.getElementById('emp-name');
     const roleInput = document.getElementById('emp-role');
@@ -213,28 +240,25 @@ async function addEmployee() {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ 
-            name: nameInput.value, 
-            role: roleInput.value,
-            email: emailInput.value, 
-            username: usernameInput.value,
-            password: passwordInput.value,
-            is_admin: isAdminInput.checked 
+            name: nameInput.value, role: roleInput.value, email: emailInput.value, 
+            username: usernameInput.value, password: passwordInput.value, is_admin: isAdminInput.checked 
         })
     });
 
     nameInput.value = ''; roleInput.value = ''; usernameInput.value = ''; emailInput.value = ''; passwordInput.value = '';
     isAdminInput.checked = false;
+    toggleAddEmployee();
     loadDashboard(); 
 }
 
 async function deleteEmployee(employeeId) {
-    if(!confirm("Are you sure you want to delete this employee?")) return;
+    if(!confirm("WARNING: Are you sure you want to permanently delete this record?")) return;
     await fetch(`${API_URL}/employees/${employeeId}`, { method: 'DELETE', headers: getAuthHeaders() });
     loadDashboard();
 }
 
 async function promoteEmployee(employeeId) {
-    if(!confirm("Are you sure you want to grant this user Sudo privileges?")) return;
+    if(!confirm("WARNING: Grant SUDO privileges to this identity?")) return;
     await fetch(`${API_URL}/employees/${employeeId}/promote`, { method: 'PUT', headers: getAuthHeaders() });
     loadDashboard();
 }
@@ -261,103 +285,53 @@ async function addComment(taskId) {
     const response = await fetch(`${API_URL}/tasks/${taskId}/comments`, {
         method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ text: textInput.value })
     });
-    if (response.ok) loadDashboard(); 
-    else alert("Something went wrong adding your comment!");
-}
-
-function escapeHTML(str) {
-    if (!str) return '';
-    return str.replace(/[&<>'"]/g, 
-        tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-        }[tag] || tag)
-    );
-}
-
-function toggleArchiveMenu() {
-    const sidebar = document.getElementById('archive-sidebar');
-    const archiveBtn = document.getElementById('archive-btn');
-    
-    if (sidebar) {
-        
-        sidebar.classList.toggle('-translate-x-full');
-        
-        
-        if (sidebar.classList.contains('-translate-x-full')) {
-            archiveBtn.classList.remove('hidden');
-        } else {
-            archiveBtn.classList.add('hidden');
-        }
-    }
+    if (response.ok) loadDashboard(); else alert("Communication log failed.");
 }
 
 async function archiveTask(taskId) {
-    await fetch(`${API_URL}/tasks/${taskId}`, {
-        method: 'PUT', 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ is_archived: true })
-    });
+    await fetch(`${API_URL}/tasks/${taskId}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ is_archived: true }) });
     loadDashboard();
 }
 
 async function unarchiveTask(taskId) {
-    await fetch(`${API_URL}/tasks/${taskId}`, {
-        method: 'PUT', 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ is_archived: false })
-    });
+    await fetch(`${API_URL}/tasks/${taskId}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ is_archived: false }) });
     loadDashboard();
 }
 
 async function updateDriveLink(taskId, isEdit = false) {
     let newLink;
-    
     if (isEdit) {
-        newLink = prompt("Enter the new Google Drive link:");
+        newLink = prompt("Enter the new external data URL:");
         if (newLink === null) return; 
     } else {
         const linkInput = document.getElementById(`drive-link-${taskId}`);
         if (!linkInput.value) return;
         newLink = linkInput.value;
     }
-
-    await fetch(`${API_URL}/tasks/${taskId}`, {
-        method: 'PUT', 
-        headers: getAuthHeaders(), 
-        body: JSON.stringify({ drive_link: newLink })
-    });
+    await fetch(`${API_URL}/tasks/${taskId}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ drive_link: newLink }) });
     loadDashboard();
-}
-
-// ADD THESE TO THE BOTTOM OF app.js
-function toggleForgotPassword() {
-    document.getElementById("login-box").classList.toggle("hidden");
-    document.getElementById("forgot-box").classList.toggle("hidden");
-    document.getElementById("reset-msg").classList.add("hidden"); // Clear old messages
 }
 
 async function sendResetLink() {
     const email = document.getElementById("reset-email").value;
-    if (!email) return alert("Please enter your email.");
+    if (!email) return alert("Email required.");
 
     const msgEl = document.getElementById("reset-msg");
-    msgEl.textContent = "Sending email...";
-    msgEl.className = "text-sm text-center mt-3 font-medium text-gray-600"; 
+    msgEl.textContent = "Transmitting...";
+    msgEl.className = "text-xs text-left mt-4 font-bold font-body text-[#717c82] block"; 
     
     try {
-        const response = await fetch(`${API_URL}/forgot-password?email=${encodeURIComponent(email)}`, {
-            method: 'POST'
-        });
+        const response = await fetch(`${API_URL}/forgot-password?email=${encodeURIComponent(email)}`, { method: 'POST' });
         const data = await response.json();
-        
         msgEl.textContent = data.message;
-        msgEl.className = "text-sm text-center mt-3 font-medium text-green-600";
+        msgEl.className = "text-xs text-left mt-4 font-bold font-body text-green-600 block";
     } catch (error) {
-        msgEl.textContent = "Something went wrong. Try again.";
-        msgEl.className = "text-sm text-center mt-3 font-medium text-red-600";
+        msgEl.textContent = "Transmission failed. Verify backend status.";
+        msgEl.className = "text-xs text-left mt-4 font-bold font-body text-error block";
     }
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
